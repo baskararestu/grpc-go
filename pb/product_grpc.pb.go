@@ -27,6 +27,7 @@ type ProductServiceClient interface {
 	GetProductById(ctx context.Context, in *ProductID, opts ...grpc.CallOption) (*ProductResponse, error)
 	UpdateProduct(ctx context.Context, in *ProductUpdateRequest, opts ...grpc.CallOption) (*ProductResponse, error)
 	DeleteProduct(ctx context.Context, in *ProductID, opts ...grpc.CallOption) (*DeleteProductResponse, error)
+	GetRandomProducts(ctx context.Context, in *NRequest, opts ...grpc.CallOption) (*ListProductResponse, error)
 }
 
 type productServiceClient struct {
@@ -82,6 +83,15 @@ func (c *productServiceClient) DeleteProduct(ctx context.Context, in *ProductID,
 	return out, nil
 }
 
+func (c *productServiceClient) GetRandomProducts(ctx context.Context, in *NRequest, opts ...grpc.CallOption) (*ListProductResponse, error) {
+	out := new(ListProductResponse)
+	err := c.cc.Invoke(ctx, "/products.ProductService/GetRandomProducts", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProductServiceServer is the server API for ProductService service.
 // All implementations must embed UnimplementedProductServiceServer
 // for forward compatibility
@@ -91,6 +101,7 @@ type ProductServiceServer interface {
 	GetProductById(context.Context, *ProductID) (*ProductResponse, error)
 	UpdateProduct(context.Context, *ProductUpdateRequest) (*ProductResponse, error)
 	DeleteProduct(context.Context, *ProductID) (*DeleteProductResponse, error)
+	GetRandomProducts(context.Context, *NRequest) (*ListProductResponse, error)
 	mustEmbedUnimplementedProductServiceServer()
 }
 
@@ -112,6 +123,9 @@ func (UnimplementedProductServiceServer) UpdateProduct(context.Context, *Product
 }
 func (UnimplementedProductServiceServer) DeleteProduct(context.Context, *ProductID) (*DeleteProductResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteProduct not implemented")
+}
+func (UnimplementedProductServiceServer) GetRandomProducts(context.Context, *NRequest) (*ListProductResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRandomProducts not implemented")
 }
 func (UnimplementedProductServiceServer) mustEmbedUnimplementedProductServiceServer() {}
 
@@ -216,6 +230,24 @@ func _ProductService_DeleteProduct_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProductService_GetRandomProducts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProductServiceServer).GetRandomProducts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/products.ProductService/GetRandomProducts",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProductServiceServer).GetRandomProducts(ctx, req.(*NRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ProductService_ServiceDesc is the grpc.ServiceDesc for ProductService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -242,6 +274,10 @@ var ProductService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteProduct",
 			Handler:    _ProductService_DeleteProduct_Handler,
+		},
+		{
+			MethodName: "GetRandomProducts",
+			Handler:    _ProductService_GetRandomProducts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

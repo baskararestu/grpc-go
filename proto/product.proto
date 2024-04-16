@@ -10,6 +10,7 @@ service ProductService {
     rpc GetProductById(ProductID) returns (ProductResponse);
     rpc UpdateProduct(ProductUpdateRequest) returns (ProductResponse);
     rpc DeleteProduct(ProductID) returns (DeleteProductResponse);
+    rpc GetRandomProducts(NRequest) returns (ListProductResponse);
 }
 
 message Product {
@@ -51,4 +52,8 @@ message ListProductResponse {
 message DeleteProductResponse {
     bool success = 1;
     string message = 2;
+}
+
+message NRequest {
+    int32 size = 1; 
 }

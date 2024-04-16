@@ -8,7 +8,7 @@ protoc:
 # Drop collection target
 drop-collection:
 	@echo "Dropping collection $(COLLECTION) from database $(DATABASE)..."
-	@mongosh $(MONGODB_URI)/$(DATABASE_NAME) --eval "use $(DATABASE_NAME); db.$(COLLECTION).drop()"
+	@mongosh $(MONGODB_URI)/$(DATABASE_NAME) --eval "use $(DATABASE_NAME); db.$(COLLECTION_PRODUCTS).drop()"
 	@echo "Collection $(COLLECTION) dropped from database $(DATABASE)."
 
 
