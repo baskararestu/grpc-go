@@ -1,16 +1,16 @@
 syntax = "proto3";
 
-package products;
+package product;
 
-option go_package = "/pb";
+option go_package = "/pb/product";
 
 service ProductService {
     rpc CreateProduct(CreateProductRequest) returns (ProductResponse);
     rpc ListProduct(Empty) returns (stream ListProductResponse);
-        rpc GetProductById(ProductID) returns (ProductResponse);
+    rpc GetProductById(ProductID) returns (ProductResponse);
     rpc UpdateProduct(ProductRequest) returns (ProductResponse);
     rpc DeleteProduct(ProductID) returns (DeleteProductResponse);
-    rpc GetRandomProducts(NRequest) returns (ListProductResponse);
+    rpc GetRandomProducts(NRequest) returns (stream ListProductResponse);
 }
 
 message Product {

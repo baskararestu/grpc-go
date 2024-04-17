@@ -1,0 +1,23 @@
+version: "3.8"
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: ${MONGODB_DATABASE_CONTAINER_NAME}
+    ports:
+      - "27051:27017"
+    volumes:
+      - grpcgo_mongodb_data:/data/db
+    env_file:
+      - .env
+  mongodb_test:
+    image: mongo:latest
+    container_name: ${MONGODB_TEST_DATABASE_CONTAINER_NAME}
+    ports:
+      - "27055:27017"
+    volumes:
+      - grpcgo_mongodb_test_data:/data/db
+    env_file:
+      - .env
+volumes:
+  grpcgo_mongodb_data:
+  grpcgo_mongodb_test_data:
