@@ -6,8 +6,8 @@ option go_package = "/pb";
 
 service ProductService {
     rpc CreateProduct(CreateProductRequest) returns (ProductResponse);
-    rpc ListProduct(Empty) returns (ListProductResponse);
-    rpc GetProductById(ProductID) returns (ProductResponse);
+    rpc ListProduct(Empty) returns (stream ListProductResponse);
+        rpc GetProductById(ProductID) returns (ProductResponse);
     rpc UpdateProduct(ProductUpdateRequest) returns (ProductResponse);
     rpc DeleteProduct(ProductID) returns (DeleteProductResponse);
     rpc GetRandomProducts(NRequest) returns (ListProductResponse);

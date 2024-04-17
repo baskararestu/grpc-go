@@ -62,3 +62,89 @@ func (s *ProductServiceServer) CreateProduct(ctx context.Context, req *pb.Create
 
 	return resp, nil
 }
+
+func (s *ProductServiceServer) ListProduct(req *pb.Empty, stream pb.ProductService_ListProductServer) error {
+	data := &m.ProductItem{}
+	ctx := context.Background()
+	cursor, err := db.GetMongoDB().Products.Find(ctx, bson.M{})
+	if err != nil {
+		log.Printf("Error querying products from database: %v", err)
+		return stream.Send(&pb.ListProductResponse{
+			Success: false,
+			Message: fmt.Sprintf("Error querying products from database: %v", err),
+		})
+	}
+	defer cursor.Close(ctx)
+
+	var productList []*pb.Product
+
+	for cursor.Next(ctx) {
+		if err := cursor.Decode(data); err != nil {
+			log.Printf("Error decoding product: %v", err)
+			return stream.Send(&pb.ListProductResponse{
+				Success: false,
+				Message: fmt.Sprintf("Error decoding product: %v", err),
+			})
+		}
+
+		product := &pb.Product{
+			Id:       data.ID.Hex(),
+			Name:     data.Name,
+			Price:    float32(data.Price),
+			Category: data.Category,
+		}
+
+		productList = append(productList, product)
+
+		if err := stream.Send(&pb.ListProductResponse{
+			Success:  true,
+			Message:  "Products listed successfully",
+			Products: productList,
+		}); err != nil {
+			log.Printf("Error sending product response: %v", err)
+			return err
+		}
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Printf("Unknown cursor error: %v", err)
+		return stream.Send(&pb.ListProductResponse{
+			Success: false,
+			Message: fmt.Sprintf("Error querying products from database: %v", err),
+		})
+	}
+
+	return nil
+}
+
+func (s *ProductServiceServer) GetProductById(ctx context.Context, req *pb.ProductID) (*pb.ProductResponse, error) {
+	if req.GetId() == "" {
+		return &pb.ProductResponse{Success: false, Message: "Product ID is required"}, nil
+	}
+
+	oid, err := primitive.ObjectIDFromHex(req.GetId())
+	if err != nil {
+		return &pb.ProductResponse{Success: false, Message: "Product not found"}, nil
+	}
+
+	result := db.GetMongoDB().Products.FindOne(ctx, bson.M{"_id": oid})
+	data := m.ProductItem{}
+
+	if err := result.Decode(&data); err != nil {
+		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error decoding product: %v", err)}, err
+	}
+
+	response := &pb.ProductResponse{
+		Success: true,
+		Message: "Product retrieved successfully",
+		Product: []*pb.Product{
+			{
+				Id:       data.ID.Hex(),
+				Name:     data.Name,
+				Price:    float32(data.Price),
+				Category: data.Category,
+			},
+		},
+	}
+	return response, nil
+}
