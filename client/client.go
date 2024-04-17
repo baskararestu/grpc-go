@@ -24,7 +24,7 @@ func main() {
 	receivedTimes := make([]time.Time, 0)
 
 	for i := 0; i < 20; i++ {
-		product := &pb.ProductRequest{
+		product := &pb.CreateProductRequest{
 			Name:     "Product " + strconv.Itoa(i+1),
 			Price:    float32((i + 1) * 10),
 			Category: "Category " + strconv.Itoa(i+1),

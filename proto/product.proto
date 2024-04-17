@@ -5,10 +5,10 @@ package products;
 option go_package = "/pb";
 
 service ProductService {
-    rpc CreateProduct(ProductRequest) returns (ProductResponse);
-    rpc ListProduct(Empty) returns (ListProductResponse);
-    rpc GetProductById(ProductID) returns (ProductResponse);
-    rpc UpdateProduct(ProductUpdateRequest) returns (ProductResponse);
+    rpc CreateProduct(CreateProductRequest) returns (ProductResponse);
+    rpc ListProduct(Empty) returns (stream ListProductResponse);
+        rpc GetProductById(ProductID) returns (ProductResponse);
+    rpc UpdateProduct(ProductRequest) returns (ProductResponse);
     rpc DeleteProduct(ProductID) returns (DeleteProductResponse);
     rpc GetRandomProducts(NRequest) returns (ListProductResponse);
 }
@@ -22,7 +22,7 @@ message Product {
 
 message Empty {}
 
-message ProductRequest {
+message CreateProductRequest {
     string name = 1;
     float price = 2;
     string category = 3;
@@ -38,9 +38,8 @@ message ProductID {
     string id = 1;
 }
 
-message ProductUpdateRequest {
-    string id= 1;
-    ProductRequest product = 2;
+message ProductRequest {
+    Product product =1;
 }
 
 message ListProductResponse {

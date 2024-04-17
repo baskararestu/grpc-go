@@ -10,19 +10,20 @@ import (
 	"github.com/baskararestu/grpc-go/pb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/context"
+
+	m "github.com/baskararestu/grpc-go/models"
 )
 
 type ProductServiceServer struct {
 	pb.UnimplementedProductServiceServer
 }
 
-func (s *ProductServiceServer) CreateProduct(ctx context.Context, req *pb.ProductRequest) (*pb.ProductResponse, error) {
-	product := &pb.Product{
-		Name:     req.Name,
-		Price:    req.Price,
-		Category: req.Category,
+func (s *ProductServiceServer) CreateProduct(ctx context.Context, req *pb.CreateProductRequest) (*pb.ProductResponse, error) {
+	product := &m.ProductItem{
+		Name:     req.GetName(),
+		Price:    float64(req.GetPrice()),
+		Category: req.GetCategory(),
 	}
 
 	count, err := db.GetMongoDB().Products.CountDocuments(ctx, bson.M{"name": product.GetName()})
@@ -49,123 +50,147 @@ func (s *ProductServiceServer) CreateProduct(ctx context.Context, req *pb.Produc
 		Success: true,
 		Message: "Product created successfully",
 		Product: []*pb.Product{{
-			Id:       product.GetId(),
-			Name:     product.GetName(),
-			Price:    product.GetPrice(),
-			Category: product.GetCategory(),
+			Id:       product.ID.Hex(),
+			Name:     product.Name,
+			Price:    float32(product.Price),
+			Category: product.Category,
 		}},
 	}
 
 	return resp, nil
 }
 
-func (s *ProductServiceServer) ListProduct(ctx context.Context, req *pb.Empty) (*pb.ListProductResponse, error) {
+func (s *ProductServiceServer) ListProduct(req *pb.Empty, stream pb.ProductService_ListProductServer) error {
+	data := &m.ProductItem{}
+	ctx := context.Background()
 	cursor, err := db.GetMongoDB().Products.Find(ctx, bson.M{})
 	if err != nil {
 		log.Printf("Error querying products from database: %v", err)
-		return &pb.ListProductResponse{Success: false, Message: fmt.Sprintf("Error querying products from database: %v", err)}, err
+		return stream.Send(&pb.ListProductResponse{
+			Success: false,
+			Message: fmt.Sprintf("Error querying products from database: %v", err),
+		})
 	}
 	defer cursor.Close(ctx)
 
-	var products []*pb.Product
+	var productList []*pb.Product
+
 	for cursor.Next(ctx) {
-		var product pb.Product
-		if err := cursor.Decode(&product); err != nil {
+		if err := cursor.Decode(data); err != nil {
 			log.Printf("Error decoding product: %v", err)
-			return &pb.ListProductResponse{Success: false, Message: fmt.Sprintf("Error decoding product: %v", err)}, err
+			return stream.Send(&pb.ListProductResponse{
+				Success: false,
+				Message: fmt.Sprintf("Error decoding product: %v", err),
+			})
 		}
-		product.Id = product.GetId()
-		products = append(products, &product)
+
+		product := &pb.Product{
+			Id:       data.ID.Hex(),
+			Name:     data.Name,
+			Price:    float32(data.Price),
+			Category: data.Category,
+		}
+
+		productList = append(productList, product)
+
+		if err := stream.Send(&pb.ListProductResponse{
+			Success:  true,
+			Message:  "Products listed successfully",
+			Products: productList,
+		}); err != nil {
+			log.Printf("Error sending product response: %v", err)
+			return err
+		}
 	}
+
 	if err := cursor.Err(); err != nil {
-		log.Printf("Cursor error: %v", err)
-		return &pb.ListProductResponse{Success: false, Message: fmt.Sprintf("Cursor error: %v", err)}, err
+		log.Printf("Unknown cursor error: %v", err)
+		return stream.Send(&pb.ListProductResponse{
+			Success: false,
+			Message: fmt.Sprintf("Error querying products from database: %v", err),
+		})
 	}
 
-	return &pb.ListProductResponse{
-		Success:  true,
-		Message:  "Products listed successfully",
-		Products: products,
-	}, nil
-}
-
-func (s *ProductServiceServer) UpdateProduct(ctx context.Context, req *pb.ProductUpdateRequest) (*pb.ProductResponse, error) {
-	if req.GetId() == "" {
-		return &pb.ProductResponse{Success: false, Message: "Product ID is required for update"}, nil
-	}
-
-	filter := bson.M{"_id": req.GetId()}
-
-	update := bson.M{
-		"$set": bson.M{
-			"name":     req.Product.GetName(),
-			"price":    req.Product.GetPrice(),
-			"category": req.Product.GetCategory(),
-		},
-	}
-
-	updateResult, err := db.GetMongoDB().Products.UpdateOne(ctx, filter, update)
-	if err != nil {
-		log.Printf("Error updating product: %v", err)
-		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error updating product: %v", err)}, err
-	}
-
-	if updateResult.ModifiedCount == 0 {
-		return &pb.ProductResponse{Success: false, Message: "Product not found or no changes were made"}, nil
-	}
-
-	successMessage := fmt.Sprintf("Product with ID %s updated successfully", req.Id)
-	return &pb.ProductResponse{Success: true, Message: successMessage}, nil
-}
-
-func (s *ProductServiceServer) DeleteProduct(ctx context.Context, req *pb.ProductID) (*pb.DeleteProductResponse, error) {
-	if req.GetId() == "" {
-		return &pb.DeleteProductResponse{Success: false, Message: "Product ID is required for deletion"}, nil
-	}
-
-	filter := bson.M{"_id": req.GetId()}
-
-	deleteResult, err := db.GetMongoDB().Products.DeleteOne(ctx, filter)
-	if err != nil {
-		log.Printf("Error deleting product: %v", err)
-		return &pb.DeleteProductResponse{Success: false, Message: fmt.Sprintf("Error deleting product: %v", err)}, err
-	}
-
-	if deleteResult.DeletedCount == 0 {
-		return &pb.DeleteProductResponse{Success: false, Message: "Product not found"}, nil
-	}
-
-	return &pb.DeleteProductResponse{Success: true, Message: "Product deleted successfully"}, nil
+	return nil
 }
 
 func (s *ProductServiceServer) GetProductById(ctx context.Context, req *pb.ProductID) (*pb.ProductResponse, error) {
 	if req.GetId() == "" {
-		return &pb.ProductResponse{Success: false, Message: "Product ID is required for retrieval"}, nil
+		return &pb.ProductResponse{Success: false, Message: "Product ID is required"}, nil
 	}
 
-	filter := bson.M{"_id": req.GetId()}
-
-	var product *pb.Product
-	err := db.GetMongoDB().Products.FindOne(ctx, filter).Decode(&product)
+	oid, err := primitive.ObjectIDFromHex(req.GetId())
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			log.Printf("Product not found with ID: %s", req.Id)
-			return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Product not found with ID: %s", req.Id)}, nil
-		}
-		log.Printf("Error retrieving product: %v", err)
-		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error retrieving product: %v", err)}, err
+		return &pb.ProductResponse{Success: false, Message: "Product not found"}, nil
 	}
 
-	return &pb.ProductResponse{
+	result := db.GetMongoDB().Products.FindOne(ctx, bson.M{"_id": oid})
+	data := m.ProductItem{}
+
+	if err := result.Decode(&data); err != nil {
+		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error decoding product: %v", err)}, err
+	}
+
+	response := &pb.ProductResponse{
 		Success: true,
 		Message: "Product retrieved successfully",
-		Product: []*pb.Product{{
-			Id:       product.GetId(),
-			Name:     product.GetName(),
-			Price:    product.GetPrice(),
-			Category: product.GetCategory(),
-		}},
-	}, nil
+		Product: []*pb.Product{
+			{
+				Id:       data.ID.Hex(),
+				Name:     data.Name,
+				Price:    float32(data.Price),
+				Category: data.Category,
+			},
+		},
+	}
+	return response, nil
+}
+
+func (s *ProductServiceServer) UpdateProduct(ctx context.Context, req *pb.ProductRequest) (*pb.ProductResponse, error) {
+	if req.Product.GetId() == "" {
+		return &pb.ProductResponse{Success: false, Message: "Product ID is required for update"}, nil
+	}
+
+	product := req.GetProduct()
+	oid, err := primitive.ObjectIDFromHex(product.GetId())
+	if err != nil {
+		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Invalid product ID: %s", product.GetId())}, nil
+	}
+	update := bson.M{
+		"name":     product.GetName(),
+		"price":    float64(product.GetPrice()),
+		"category": product.GetCategory(),
+	}
+
+	filter := bson.M{
+		"_id": oid,
+	}
+
+	result := db.DBCollections.Products.FindOneAndUpdate(ctx, filter, bson.M{"$set": update})
+
+	decoded := m.ProductItem{}
+	err = result.Decode(&decoded)
+	if err != nil {
+		log.Printf("Error decoding product: %v", err)
+		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error decoding product: %v", err)}, err
+	}
+
+	successMessage := fmt.Sprintf("Product with ID %s updated successfully", product.GetId())
+	return &pb.ProductResponse{Success: true, Message: successMessage, Product: []*pb.Product{product}}, nil
+}
+
+func (s *ProductServiceServer) DeleteProduct(ctx context.Context, req *pb.ProductID) (*pb.DeleteProductResponse, error) {
+	oid, err := primitive.ObjectIDFromHex(req.GetId())
+	if err != nil {
+		return &pb.DeleteProductResponse{Success: false, Message: fmt.Sprintf("Invalid product ID: %s", req.GetId())}, nil
+	}
+
+	_, err = db.GetMongoDB().Products.DeleteOne(ctx, bson.M{"_id": oid})
+	if err != nil {
+		return &pb.DeleteProductResponse{Success: false, Message: fmt.Sprintf("Error deleting product: %v", err)}, err
+	}
+
+	return &pb.DeleteProductResponse{Success: true, Message: fmt.Sprintf("Product with ID: %v", req.GetId())}, nil
 }
 
 func (s *ProductServiceServer) GetRandomProducts(ctx context.Context, req *pb.NRequest) (*pb.ListProductResponse, error) {
@@ -178,12 +203,18 @@ func (s *ProductServiceServer) GetRandomProducts(ctx context.Context, req *pb.NR
 
 	var products []*pb.Product
 	for cursor.Next(ctx) {
-		var product pb.Product
-		if err := cursor.Decode(&product); err != nil {
+		var data m.ProductItem
+		if err := cursor.Decode(&data); err != nil {
 			log.Printf("Error decoding product: %v", err)
 			return &pb.ListProductResponse{Success: false, Message: fmt.Sprintf("Error decoding product: %v", err)}, err
 		}
-		products = append(products, &product)
+		product := &pb.Product{
+			Id:       data.ID.Hex(),
+			Name:     data.Name,
+			Price:    float32(data.Price),
+			Category: data.Category,
+		}
+		products = append(products, product)
 	}
 	if err := cursor.Err(); err != nil {
 		log.Printf("Cursor error: %v", err)
@@ -197,17 +228,8 @@ func (s *ProductServiceServer) GetRandomProducts(ctx context.Context, req *pb.NR
 
 	var productList []*pb.Product
 	batchSize := int(req.Size)
-	for i, p := range products {
-		if i >= batchSize {
-			break
-		}
-		product := &pb.Product{
-			Id:       p.GetId(),
-			Name:     p.GetName(),
-			Price:    p.GetPrice(),
-			Category: p.GetCategory(),
-		}
-		productList = append(productList, product)
+	for i := 0; i < len(products) && i < batchSize; i++ {
+		productList = append(productList, products[i])
 	}
 
 	return &pb.ListProductResponse{
