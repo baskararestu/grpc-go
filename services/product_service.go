@@ -26,25 +26,30 @@ func (s *ProductServiceServer) CreateProduct(ctx context.Context, req *pb.Create
 		Category: req.GetCategory(),
 	}
 
-	count, err := db.GetMongoDB().Products.CountDocuments(ctx, bson.M{"name": product.GetName()})
+	count, err := db.GetMongoDB().Products.CountDocuments(ctx, bson.M{"name": req.Name})
 	if err != nil {
-		log.Printf("Error checking for existing product with name %s: %v", product.GetName(), err)
+		log.Printf("Error checking for existing product with name %s: %v", req.Name, err)
 		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error checking for existing product with name %s: %v", req.Name, err)}, err
 	}
 
 	if count > 0 {
-		log.Printf("Product with name %s already exists", product.GetName())
-		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Product with name %s already exists", product.GetName())}, nil
+		log.Printf("Product with name %s already exists", req.Name)
+		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Product with name %s already exists", req.Name)}, nil
 	}
 
-	res, err := db.GetMongoDB().Products.InsertOne(ctx, product)
+	result, err := db.GetMongoDB().Products.InsertOne(ctx, product)
 	if err != nil {
 		log.Printf("Error inserting product into database: %v", err)
 		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error inserting product into database: %v", err)}, err
 	}
 
-	insertedID := res.InsertedID.(primitive.ObjectID)
-	product.Id = insertedID.Hex()
+	insertedID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		log.Printf("Error converting inserted ID to ObjectID")
+		return &pb.ProductResponse{Success: false, Message: "Error converting inserted ID to ObjectID"}, err
+	}
+
+	product.ID = insertedID
 
 	resp := &pb.ProductResponse{
 		Success: true,
