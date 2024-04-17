@@ -22,10 +22,6 @@ type server struct {
 	db      *store.MongoDb
 }
 
-// type ProductServiceServer struct {
-// 	pbProduct.UnimplementedProductServiceServer
-// }
-
 // New creates a new instance of the server with the provided database client.
 // It sets up the gRPC server, registers the product database service,
 // and initializes reflection for gRPC server debugging.
