@@ -8,7 +8,7 @@ service ProductService {
     rpc CreateProduct(CreateProductRequest) returns (ProductResponse);
     rpc ListProduct(Empty) returns (stream ListProductResponse);
         rpc GetProductById(ProductID) returns (ProductResponse);
-    rpc UpdateProduct(ProductUpdateRequest) returns (ProductResponse);
+    rpc UpdateProduct(ProductRequest) returns (ProductResponse);
     rpc DeleteProduct(ProductID) returns (DeleteProductResponse);
     rpc GetRandomProducts(NRequest) returns (ListProductResponse);
 }
@@ -38,9 +38,8 @@ message ProductID {
     string id = 1;
 }
 
-message ProductUpdateRequest {
-    string id= 1;
-    CreateProductRequest product = 2;
+message ProductRequest {
+    Product product =1;
 }
 
 message ListProductResponse {

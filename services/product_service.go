@@ -148,3 +148,50 @@ func (s *ProductServiceServer) GetProductById(ctx context.Context, req *pb.Produ
 	}
 	return response, nil
 }
+
+func (s *ProductServiceServer) UpdateProduct(ctx context.Context, req *pb.ProductRequest) (*pb.ProductResponse, error) {
+	if req.Product.GetId() == "" {
+		return &pb.ProductResponse{Success: false, Message: "Product ID is required for update"}, nil
+	}
+
+	product := req.GetProduct()
+	oid, err := primitive.ObjectIDFromHex(product.GetId())
+	if err != nil {
+		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Invalid product ID: %s", product.GetId())}, nil
+	}
+	update := bson.M{
+		"name":     product.GetName(),
+		"price":    float64(product.GetPrice()),
+		"category": product.GetCategory(),
+	}
+
+	filter := bson.M{
+		"_id": oid,
+	}
+
+	result := db.DBCollections.Products.FindOneAndUpdate(ctx, filter, bson.M{"$set": update})
+
+	decoded := m.ProductItem{}
+	err = result.Decode(&decoded)
+	if err != nil {
+		log.Printf("Error decoding product: %v", err)
+		return &pb.ProductResponse{Success: false, Message: fmt.Sprintf("Error decoding product: %v", err)}, err
+	}
+
+	successMessage := fmt.Sprintf("Product with ID %s updated successfully", product.GetId())
+	return &pb.ProductResponse{Success: true, Message: successMessage, Product: []*pb.Product{product}}, nil
+}
+
+func (s *ProductServiceServer) DeleteProduct(ctx context.Context, req *pb.ProductID) (*pb.DeleteProductResponse, error) {
+	oid, err := primitive.ObjectIDFromHex(req.GetId())
+	if err != nil {
+		return &pb.DeleteProductResponse{Success: false, Message: fmt.Sprintf("Invalid product ID: %s", req.GetId())}, nil
+	}
+
+	_, err = db.GetMongoDB().Products.DeleteOne(ctx, bson.M{"_id": oid})
+	if err != nil {
+		return &pb.DeleteProductResponse{Success: false, Message: fmt.Sprintf("Error deleting product: %v", err)}, err
+	}
+
+	return &pb.DeleteProductResponse{Success: true, Message: fmt.Sprintf("Product with ID: %v", req.GetId())}, nil
+}
