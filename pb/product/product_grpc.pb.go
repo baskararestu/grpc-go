@@ -4,7 +4,7 @@
 // - protoc             v3.21.12
 // source: product.proto
 
-package pb
+package product
 
 import (
 	context "context"
@@ -27,7 +27,7 @@ type ProductServiceClient interface {
 	GetProductById(ctx context.Context, in *ProductID, opts ...grpc.CallOption) (*ProductResponse, error)
 	UpdateProduct(ctx context.Context, in *ProductRequest, opts ...grpc.CallOption) (*ProductResponse, error)
 	DeleteProduct(ctx context.Context, in *ProductID, opts ...grpc.CallOption) (*DeleteProductResponse, error)
-	GetRandomProducts(ctx context.Context, in *NRequest, opts ...grpc.CallOption) (*ListProductResponse, error)
+	GetRandomProducts(ctx context.Context, in *NRequest, opts ...grpc.CallOption) (ProductService_GetRandomProductsClient, error)
 }
 
 type productServiceClient struct {
@@ -40,7 +40,7 @@ func NewProductServiceClient(cc grpc.ClientConnInterface) ProductServiceClient {
 
 func (c *productServiceClient) CreateProduct(ctx context.Context, in *CreateProductRequest, opts ...grpc.CallOption) (*ProductResponse, error) {
 	out := new(ProductResponse)
-	err := c.cc.Invoke(ctx, "/products.ProductService/CreateProduct", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/product.ProductService/CreateProduct", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (c *productServiceClient) CreateProduct(ctx context.Context, in *CreateProd
 }
 
 func (c *productServiceClient) ListProduct(ctx context.Context, in *Empty, opts ...grpc.CallOption) (ProductService_ListProductClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ProductService_ServiceDesc.Streams[0], "/products.ProductService/ListProduct", opts...)
+	stream, err := c.cc.NewStream(ctx, &ProductService_ServiceDesc.Streams[0], "/product.ProductService/ListProduct", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (x *productServiceListProductClient) Recv() (*ListProductResponse, error) {
 
 func (c *productServiceClient) GetProductById(ctx context.Context, in *ProductID, opts ...grpc.CallOption) (*ProductResponse, error) {
 	out := new(ProductResponse)
-	err := c.cc.Invoke(ctx, "/products.ProductService/GetProductById", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/product.ProductService/GetProductById", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (c *productServiceClient) GetProductById(ctx context.Context, in *ProductID
 
 func (c *productServiceClient) UpdateProduct(ctx context.Context, in *ProductRequest, opts ...grpc.CallOption) (*ProductResponse, error) {
 	out := new(ProductResponse)
-	err := c.cc.Invoke(ctx, "/products.ProductService/UpdateProduct", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/product.ProductService/UpdateProduct", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,20 +99,43 @@ func (c *productServiceClient) UpdateProduct(ctx context.Context, in *ProductReq
 
 func (c *productServiceClient) DeleteProduct(ctx context.Context, in *ProductID, opts ...grpc.CallOption) (*DeleteProductResponse, error) {
 	out := new(DeleteProductResponse)
-	err := c.cc.Invoke(ctx, "/products.ProductService/DeleteProduct", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/product.ProductService/DeleteProduct", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *productServiceClient) GetRandomProducts(ctx context.Context, in *NRequest, opts ...grpc.CallOption) (*ListProductResponse, error) {
-	out := new(ListProductResponse)
-	err := c.cc.Invoke(ctx, "/products.ProductService/GetRandomProducts", in, out, opts...)
+func (c *productServiceClient) GetRandomProducts(ctx context.Context, in *NRequest, opts ...grpc.CallOption) (ProductService_GetRandomProductsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ProductService_ServiceDesc.Streams[1], "/product.ProductService/GetRandomProducts", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &productServiceGetRandomProductsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ProductService_GetRandomProductsClient interface {
+	Recv() (*ListProductResponse, error)
+	grpc.ClientStream
+}
+
+type productServiceGetRandomProductsClient struct {
+	grpc.ClientStream
+}
+
+func (x *productServiceGetRandomProductsClient) Recv() (*ListProductResponse, error) {
+	m := new(ListProductResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // ProductServiceServer is the server API for ProductService service.
@@ -124,7 +147,7 @@ type ProductServiceServer interface {
 	GetProductById(context.Context, *ProductID) (*ProductResponse, error)
 	UpdateProduct(context.Context, *ProductRequest) (*ProductResponse, error)
 	DeleteProduct(context.Context, *ProductID) (*DeleteProductResponse, error)
-	GetRandomProducts(context.Context, *NRequest) (*ListProductResponse, error)
+	GetRandomProducts(*NRequest, ProductService_GetRandomProductsServer) error
 	mustEmbedUnimplementedProductServiceServer()
 }
 
@@ -147,8 +170,8 @@ func (UnimplementedProductServiceServer) UpdateProduct(context.Context, *Product
 func (UnimplementedProductServiceServer) DeleteProduct(context.Context, *ProductID) (*DeleteProductResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteProduct not implemented")
 }
-func (UnimplementedProductServiceServer) GetRandomProducts(context.Context, *NRequest) (*ListProductResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetRandomProducts not implemented")
+func (UnimplementedProductServiceServer) GetRandomProducts(*NRequest, ProductService_GetRandomProductsServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetRandomProducts not implemented")
 }
 func (UnimplementedProductServiceServer) mustEmbedUnimplementedProductServiceServer() {}
 
@@ -173,7 +196,7 @@ func _ProductService_CreateProduct_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/products.ProductService/CreateProduct",
+		FullMethod: "/product.ProductService/CreateProduct",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ProductServiceServer).CreateProduct(ctx, req.(*CreateProductRequest))
@@ -212,7 +235,7 @@ func _ProductService_GetProductById_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/products.ProductService/GetProductById",
+		FullMethod: "/product.ProductService/GetProductById",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ProductServiceServer).GetProductById(ctx, req.(*ProductID))
@@ -230,7 +253,7 @@ func _ProductService_UpdateProduct_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/products.ProductService/UpdateProduct",
+		FullMethod: "/product.ProductService/UpdateProduct",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ProductServiceServer).UpdateProduct(ctx, req.(*ProductRequest))
@@ -248,7 +271,7 @@ func _ProductService_DeleteProduct_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/products.ProductService/DeleteProduct",
+		FullMethod: "/product.ProductService/DeleteProduct",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ProductServiceServer).DeleteProduct(ctx, req.(*ProductID))
@@ -256,29 +279,32 @@ func _ProductService_DeleteProduct_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ProductService_GetRandomProducts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _ProductService_GetRandomProducts_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(NRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(ProductServiceServer).GetRandomProducts(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/products.ProductService/GetRandomProducts",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProductServiceServer).GetRandomProducts(ctx, req.(*NRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(ProductServiceServer).GetRandomProducts(m, &productServiceGetRandomProductsServer{stream})
+}
+
+type ProductService_GetRandomProductsServer interface {
+	Send(*ListProductResponse) error
+	grpc.ServerStream
+}
+
+type productServiceGetRandomProductsServer struct {
+	grpc.ServerStream
+}
+
+func (x *productServiceGetRandomProductsServer) Send(m *ListProductResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 // ProductService_ServiceDesc is the grpc.ServiceDesc for ProductService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ProductService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "products.ProductService",
+	ServiceName: "product.ProductService",
 	HandlerType: (*ProductServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -297,15 +323,16 @@ var ProductService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteProduct",
 			Handler:    _ProductService_DeleteProduct_Handler,
 		},
-		{
-			MethodName: "GetRandomProducts",
-			Handler:    _ProductService_GetRandomProducts_Handler,
-		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "ListProduct",
 			Handler:       _ProductService_ListProduct_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetRandomProducts",
+			Handler:       _ProductService_GetRandomProducts_Handler,
 			ServerStreams: true,
 		},
 	},
