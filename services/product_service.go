@@ -3,6 +3,8 @@ package services
 import (
 	"fmt"
 	"log"
+	"math/rand"
+	"time"
 
 	"github.com/baskararestu/grpc-go/db"
 	"github.com/baskararestu/grpc-go/pb"
@@ -194,4 +196,50 @@ func (s *ProductServiceServer) DeleteProduct(ctx context.Context, req *pb.Produc
 	}
 
 	return &pb.DeleteProductResponse{Success: true, Message: fmt.Sprintf("Product with ID: %v", req.GetId())}, nil
+}
+
+func (s *ProductServiceServer) GetRandomProducts(ctx context.Context, req *pb.NRequest) (*pb.ListProductResponse, error) {
+	cursor, err := db.GetMongoDB().Products.Find(ctx, bson.M{})
+	if err != nil {
+		log.Printf("Error querying products from database: %v", err)
+		return &pb.ListProductResponse{Success: false, Message: fmt.Sprintf("Error querying products from database: %v", err)}, err
+	}
+	defer cursor.Close(ctx)
+
+	var products []*pb.Product
+	for cursor.Next(ctx) {
+		var data m.ProductItem
+		if err := cursor.Decode(&data); err != nil {
+			log.Printf("Error decoding product: %v", err)
+			return &pb.ListProductResponse{Success: false, Message: fmt.Sprintf("Error decoding product: %v", err)}, err
+		}
+		product := &pb.Product{
+			Id:       data.ID.Hex(),
+			Name:     data.Name,
+			Price:    float32(data.Price),
+			Category: data.Category,
+		}
+		products = append(products, product)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Printf("Cursor error: %v", err)
+		return &pb.ListProductResponse{Success: false, Message: fmt.Sprintf("Cursor error: %v", err)}, err
+	}
+
+	rand.NewSource(time.Now().UnixNano())
+	rand.Shuffle(len(products), func(i, j int) {
+		products[i], products[j] = products[j], products[i]
+	})
+
+	var productList []*pb.Product
+	batchSize := int(req.Size)
+	for i := 0; i < len(products) && i < batchSize; i++ {
+		productList = append(productList, products[i])
+	}
+
+	return &pb.ListProductResponse{
+		Success:  true,
+		Message:  fmt.Sprintf("Fetched %d products successfully", len(productList)),
+		Products: productList,
+	}, nil
 }
